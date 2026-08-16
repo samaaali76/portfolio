@@ -11,20 +11,71 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet"/>
 
 <!-- SPLINE 3D VIEWER -->
-<script type="module" src="https://unpkg.com/@splinetool/viewer@1.12.94/build/spline-viewer.js"></script>
-<script type="module">
-  /* Forward global mouse events to spline viewer for robot tracking */
-  window.addEventListener('DOMContentLoaded', () => {
-    const viewer = document.getElementById('spline-robot');
-    if (!viewer) return;
-    document.addEventListener('mousemove', e => {
-      viewer.dispatchEvent(new MouseEvent('mousemove', {
-        clientX: e.clientX, clientY: e.clientY,
-        bubbles: true, cancelable: true
-      }));
-    }, { passive: true });
-  });
+<!-- SPLINE 3D VIEWER — loaded lazily, and only on capable devices.
+     See the script below for the load decision. -->
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  const wrap = document.getElementById('spline-wrap');
+  const fallback = document.getElementById('spline-fallback');
+  const viewer = document.getElementById('spline-robot');
+  const hint = document.getElementById('spline-hint');
+  if (!wrap || !viewer) return;
+
+  const prefersReducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  ).matches;
+  const isSmallScreen = window.matchMedia('(max-width: 960px)').matches;
+
+  // Bail out early and keep the static fallback for mobile and for
+  // anyone who has asked their OS to reduce motion.
+  if (prefersReducedMotion || isSmallScreen) {
+    return;
+  }
+
+  // Lazy-load: only fetch the (large) Spline runtime once the hero
+  // section is actually about to be visible, instead of blocking
+  // the initial page load with it.
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src =
+          'https://unpkg.com/@splinetool/viewer@1.12.94/build/spline-viewer.js';
+        script.onload = () => {
+          fallback.style.display = 'none';
+          viewer.style.display = 'block';
+          hint.style.display = 'flex';
+
+          document.addEventListener(
+            'mousemove',
+            (e) => {
+              viewer.dispatchEvent(
+                new MouseEvent('mousemove', {
+                  clientX: e.clientX,
+                  clientY: e.clientY,
+                  bubbles: false,
+                  cancelable: true,
+                })
+              );
+            },
+            { passive: true }
+          );
+        };
+        document.head.appendChild(script);
+      });
+    },
+    { rootMargin: '200px' }
+  );
+
+  observer.observe(wrap);
+});
 </script>
+
 
 <style>
 /* ═══════════════════════════════════════════
@@ -252,6 +303,27 @@ spline-viewer{
   animation:dotPulse 2s ease-in-out infinite;
 }
 @keyframes dotPulse{0%,100%{opacity:.3;transform:scale(.8);}50%{opacity:1;transform:scale(1.2);}}
+
+/* SPLINE FALLBACK — shown on mobile, reduced-motion, or before the
+   3D viewer script decides it's safe to load */
+.spline-fallback{
+  width:100%;height:90vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;
+  border:1px solid rgba(61,90,241,.14);
+  background:radial-gradient(circle at 50% 40%,rgba(0,229,255,.06),transparent 70%);
+  position:relative;overflow:hidden;
+}
+.spline-fallback-glow{
+  width:180px;height:180px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,229,255,.18) 0%,transparent 70%);
+  filter:blur(4px);
+}
+.spline-fallback-text{
+  font-family:var(--ff-display);font-size:.62rem;
+  letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(0,229,255,.55);
+}
 
 /* scroll hint */
 .scroll-hint{
@@ -559,7 +631,7 @@ footer{
 <section id="hero">
 
   <div class="hero-text">
-    <div class="hero-tag">// Computer Science Engineer</div>
+    <div class="hero-tag"> ___ Mobile App & Front-End Developer ___</div>
     <div class="hero-name">SAMAA</div>
     <div class="hero-name-alt">Ali Helmy</div>
     <p class="hero-sub">Building at the intersection of embedded systems, AI, mobile development, and robotics — from Cairo to the world.</p>
@@ -570,17 +642,29 @@ footer{
   </div>
 
   <!-- SPLINE 3D INTERACTIVE ROBOT -->
-  <div class="hero-spline" id="spline-wrap">
-   <spline-viewer
-  id="spline-robot"
-  url="https://prod.spline.design/l0zewl-Vtqug35Ra/scene.splinecode"
-  loading-anim-type="spinner-small-dark">
-</spline-viewer>
-    <div class="spline-hint">
-      <span class="spline-hint-dot"></span>
-      Interactive · Move your mouse
-    </div>
+  <!-- SPLINE 3D INTERACTIVE ROBOT -->
+<div class="hero-spline" id="spline-wrap">
+  <!-- Static fallback: shown on mobile, on low-power devices, and
+       whenever prefers-reduced-motion is set, instead of loading the
+       3D scene at all. Replace the gradient with a real screenshot
+       of the robot when you have one, for a nicer fallback. -->
+  <div class="spline-fallback" id="spline-fallback">
+    <div class="spline-fallback-glow"></div>
+    <p class="spline-fallback-text">3D preview available on desktop</p>
   </div>
+
+  <spline-viewer
+    id="spline-robot"
+    url="https://prod.spline.design/l0zewl-Vtqug35Ra/scene.splinecode"
+    loading-anim-type="spinner-small-dark"
+    style="display: none;">
+  </spline-viewer>
+
+  <div class="spline-hint" id="spline-hint" style="display: none;">
+    <span class="spline-hint-dot"></span>
+    Interactive · Move your mouse
+  </div>
+</div>
 
   <div class="scroll-hint">
     <div class="scroll-bar"></div>
